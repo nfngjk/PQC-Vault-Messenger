@@ -1,0 +1,25 @@
+# CMake & Build artifacts
+build/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+*.cmake
+
+# IDEs & OS files
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Ninja build files
+*.ninja
+.ninja_*
+
+# Executables
+*.exe
+*.out
+
+# Test outputs & Keys
+*.key
+*.pqc
+test*.txt
