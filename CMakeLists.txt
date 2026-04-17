@@ -19,10 +19,12 @@ add_executable(PQC_Project
     src/core/aes_gcm.cpp
     src/vault/pqc_format.cpp
     src/vault/vault.cpp
+    src/messenger/handshake.cpp
+    src/messenger/server.cpp
 )
 
 target_include_directories(PQC_Project PRIVATE
-    src/
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
     build/extern/liboqs/include
 )
 
@@ -36,4 +38,5 @@ target_link_libraries(PQC_Project PRIVATE
     oqs
     OpenSSL::SSL
     OpenSSL::Crypto
+    ws2_32
 )
