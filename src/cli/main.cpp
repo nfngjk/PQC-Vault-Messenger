@@ -1,6 +1,9 @@
 #include "vault/vault.hpp"
 #include <iostream>
 #include <string>
+#include "messenger/server.hpp"
+#include "messenger/handshake.hpp"
+#include "messenger/client.hpp"
 
 void print_usage() {
     
@@ -13,6 +16,8 @@ void print_usage() {
         1. pqc_project keygen <name>
         2. pqc_project encrypt <input> <output.pqc> <keyname>
         3. pqc_project decrypt <input.pqc> <output.txt> <keyname>
+        4. pqc_project listen <port>
+        5. pqc_project client <host> <port>
 
     )";
 
@@ -71,6 +76,46 @@ int main(int argc, char* argv[]) {
             }
 
             pqc::Vault::decrypt(argv[2], argv[3], argv[4]);
+
+        }
+
+        else if(command == "listen") {
+
+            if(argc != 3) {
+
+                std::cerr << "Usage: pqc_project listen <port>" << std::endl;
+
+                return 1;
+
+            }
+
+            else {
+
+                pqc::Server server(std::stoi(argv[2]));
+
+                server.run();
+
+            }
+
+        }
+
+        else if(command == "connect") {
+
+            if(argc != 4) {
+
+                std::cerr << "Usage: pqc_project client <host> <port>" << std::endl;
+
+                return 1;
+
+            }
+
+            else {
+
+                pqc::Client client(argv[2], std::stoi(argv[3]));
+
+                client.run();
+                
+            }
 
         }
 

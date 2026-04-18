@@ -12,7 +12,7 @@
 
 namespace pqc {
 
-    Server::Server(int port): port_(port), server_socket_(-1) {
+    Server::Server(int port): port_(port), server_forward_(-1) {
 
         WSADATA wsa;
 
@@ -26,9 +26,9 @@ namespace pqc {
 
     Server::~Server() {
 
-        if(server_socket_ != -1) {
+        if(server_forward_ != -1) {
 
-            closesocket(server_socket_);
+            closesocket(server_forward_);
 
         }
 
@@ -36,34 +36,32 @@ namespace pqc {
 
     }
 
-    void Server::send_raw_message(int socket, const std::vector<uint8_t>& data) {
+    void Server::send_raw_message(int forward, const std::vector<uint8_t>& data) {
 
         uint32_t length = htonl(data.size());
 
-        send(socket, reinterpret_cast<const char*>(&length), 4, 0);
-        send(socket, reinterpret_cast<const char*>(data.data()), data.size(), 0);
+        send(forward, reinterpret_cast<const char*>(&length), 4, 0);
+        send(forward, reinterpret_cast<const char*>(data.data()), data.size(), 0);
 
     }
 
-    std::vector<uint8_t> Server::receive_raw_message(int socket) {
+    std::vector<uint8_t> Server::receive_raw_message(int forward) {
 
         uint32_t length = 0;
 
-        recv(socket, reinterpret_cast<char*>(&length), 4, MSG_WAITALL);
+        recv(forward, reinterpret_cast<char*>(&length), 4, MSG_WAITALL);
 
         length = ntohl(length);
 
-        std::vector<uint8_t> data(length);
-
         std::vector<uint8_t> buffer(length);
 
-        recv(socket, reinterpret_cast<char*>(data.data()), length, MSG_WAITALL);
+        recv(forward, reinterpret_cast<char*>(buffer.data()), length, MSG_WAITALL);
 
         return buffer;
 
     }
 
-    void Server::send_encrypted_message(int socket, const std::vector<uint8_t>& key, const std::string& message) {
+    void Server::send_encrypted_message(int forward, const std::vector<uint8_t>& key, const std::string& message) {
 
         std::vector<uint8_t> plaintext(message.begin(), message.end());
 
@@ -75,13 +73,13 @@ namespace pqc {
         packet.insert(packet.end(), result.auth_tag.begin(), result.auth_tag.end());
         packet.insert(packet.end(), result.ciphertext.begin(), result.ciphertext.end());
 
-        send_raw_message(socket, packet);
+        send_raw_message(forward, packet);
 
     }
 
-    std::string Server::receive_encrypted_message(int socket, const std::vector<uint8_t>& key) {
+    std::string Server::receive_encrypted_message(int forward, const std::vector<uint8_t>& key) {
 
-        auto packet = receive_raw_message(socket);
+        auto packet = receive_raw_message(forward);
 
         if(packet.size() < 28) {
 
@@ -99,17 +97,17 @@ namespace pqc {
  
     }
     
-    void Server::handle_client(int client_socket) {
+    void Server::handle_client(int client_forward) {
 
         std::cout << "Client connected" << std::endl;
 
         auto kp = Handshake::server_init();
 
-        send_raw_message(client_socket, kp.public_key);
+        send_raw_message(client_forward, kp.public_key);
 
         std::cout << "Sent public key to client" << std::endl;
 
-        auto ciphertext = receive_raw_message(client_socket);
+        auto ciphertext = receive_raw_message(client_forward);
         auto session = Handshake::server_handshake(ciphertext, kp.private_key);
 
         std::cout << "Handshake completed, channel established" << std::endl;
@@ -118,7 +116,9 @@ namespace pqc {
 
             try {
 
-                auto message = receive_encrypted_message(client_socket, session.shared_private_key);
+                auto message = receive_encrypted_message(client_forward, session.shared_private_key);
+
+                std::cout << "[Client] " << message << std::endl;
 
                 if(message == "/quit") {
 
@@ -144,19 +144,22 @@ namespace pqc {
 
             std::getline(std::cin, reply);
 
-            send_encrypted_message(client_socket, session.shared_private_key, reply);
+            send_encrypted_message(client_forward, session.shared_private_key, reply);
 
         }
 
-        closesocket(client_socket);
+        closesocket(client_forward);
 
     }
 
     void Server::run() {
 
-        server_socket_ = socket(AF_INET, SOCK_STREAM, 0);
+        std::cout << "Starting server on port " << port_ << "...\n";
+        std::cout.flush();
 
-        if(server_socket_ == INVALID_SOCKET) {
+        server_forward_ = socket(AF_INET, SOCK_STREAM, 0);
+
+        if(server_forward_ == INVALID_SOCKET) {
 
             throw std::runtime_error("Failed to create socket...");
 
@@ -165,31 +168,31 @@ namespace pqc {
         sockaddr_in address{};
 
         address.sin_family = AF_INET;
-        address.sin_port = htonl(port_);
+        address.sin_port = htons(port_);
         address.sin_addr.s_addr = INADDR_ANY;
 
-        if(bind(server_socket_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR) {
+        if(bind(server_forward_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR) {
 
             throw std::runtime_error("Bind failed...");
 
         }
 
-        listen(server_socket_, 1);
+        listen(server_forward_, 1);
 
         std::cout << "Listen on port: " << port_ << std::endl;
 
         sockaddr_in client_address{};
 
         int address_length = sizeof(client_address);
-        int client_socket = accept(server_socket_, reinterpret_cast<sockaddr*>(&client_address), &address_length);
+        int client_forward = accept(server_forward_, reinterpret_cast<sockaddr*>(&client_address), &address_length);
 
-        if(client_socket == INVALID_SOCKET) {
+        if(client_forward == INVALID_SOCKET) {
 
             throw std::runtime_error("Accept failed...");
 
         }
 
-        handle_client(client_socket);
+        handle_client(client_forward);
 
     }
 

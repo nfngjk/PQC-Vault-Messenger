@@ -21,6 +21,7 @@ add_executable(PQC_Project
     src/vault/vault.cpp
     src/messenger/handshake.cpp
     src/messenger/server.cpp
+    src/messenger/client.cpp
 )
 
 target_include_directories(PQC_Project PRIVATE
